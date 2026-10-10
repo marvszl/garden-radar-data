@@ -1,0 +1,1 @@
+{"generated":1791597379,"receiver":{"lat":48.256806,"lon":13.026472},"frequencyRadiusKm":100.0,"files":{"airlines":"airlines.json","nearbyFrequencies":"nearby-frequencies.json","routes":"routes/{letter}.json"},"counts":{"airlines":5905,"airports":34128,"nearbyFrequencies":79,"routes":620414,"routeShards":25}}

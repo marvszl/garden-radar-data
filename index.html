@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Garden Radar Online</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{--bg:#071019;--panel:#0c1823ee;--line:#1d3445;--text:#eaf6ff;--muted:#7f9aad;--cyan:#38d8ff;--up:#32e69a;--down:#ff657d;--level:#62a8ff;--warn:#ffd166}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px Inter,system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}
+#map{position:absolute;inset:0 370px 0 0;background:#071019}
+.leaflet-tile{filter:brightness(.55) saturate(.7) hue-rotate(165deg)}
+.leaflet-control-zoom a{background:#0c1823!important;color:#dff7ff!important;border-color:#233d50!important}
+.leaflet-control-attribution{background:#071019b8!important;color:#7290a3!important}
+aside{position:absolute;right:0;top:0;bottom:0;width:370px;background:linear-gradient(180deg,#0d1b27fa,#08131dfa);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-12px 0 30px #0008;z-index:500}
+header{padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.pulse{width:9px;height:9px;border-radius:50%;background:var(--up);box-shadow:0 0 14px var(--up)}
+.sub{color:var(--muted);font-size:12px;margin-top:5px;line-height:1.35}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+.stat{background:#112331;border:1px solid #1c394d;border-radius:10px;padding:10px}
+.stat b{display:block;font-size:20px;color:#fff}
+.stat span{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.08em}
+.toolbar{padding:10px 12px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 90px;gap:7px}
+input,select,button{font:inherit}
+.toolbar input,.toolbar select{background:#091722;border:1px solid #244052;border-radius:8px;color:#fff;padding:8px}
+.toolbar button,.smallbtn{background:#123147;border:1px solid #2f6685;border-radius:8px;color:#dff7ff;padding:8px;cursor:pointer}
+#list{overflow:auto;padding:10px 12px;flex:1}
+.row{display:grid;grid-template-columns:1fr 84px 54px;gap:8px;align-items:center;padding:10px;border:1px solid #173245;border-radius:10px;margin-bottom:8px;background:#091722;cursor:pointer}
+.row:hover,.row.sel{border-color:var(--cyan);background:#10283a}
+.row.emg{border-color:#7e2c3e;background:#24111a}
+.row strong{display:block;font-size:15px}
+.row small{display:block;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.right{text-align:right}.trend.up{color:var(--up)}.trend.down{color:var(--down)}.trend.level{color:var(--level)}
+.badge-emg{margin-left:6px;color:#fff;background:var(--down);border-radius:99px;padding:1px 6px;font-size:11px}
+.fav{color:var(--warn)}
+#alarm{display:none;background:#3a1220;color:#ffdbe2;border-bottom:1px solid #7e2c3e;padding:10px 14px;font-weight:900}
+#toast{display:none;position:absolute;left:14px;bottom:14px;z-index:900;background:#0c1823ee;border:1px solid #2d5268;border-radius:10px;padding:10px 12px;color:#dff7ff;box-shadow:0 8px 28px #0008}
+#detail{position:absolute;left:22px;top:22px;width:340px;max-width:calc(100vw - 420px);z-index:800;background:#0c1823f4;border:1px solid #2d5268;border-radius:14px;box-shadow:0 18px 45px #0009;display:none;overflow:hidden}
+.detail-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:move}
+.detail-head b{font-size:20px}.detail-body{padding:12px 14px;line-height:1.45}.detail-close{background:#27111b;border:1px solid #693044;color:#ffb6c4;border-radius:7px;padding:3px 8px;cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.grid2 div{background:#091722;border:1px solid #193246;border-radius:8px;padding:7px;color:#b8d9e8;font-size:12px}.grid2 b{display:block;color:#fff;font-size:14px;margin-top:2px}
+.freq-window{position:absolute;right:390px;top:18px;width:340px;max-height:80vh;background:#0c1823f4;border:1px solid #2d5268;border-radius:14px;box-shadow:0 18px 45px #0009;z-index:820;display:none;overflow:hidden}
+.freq-window.open{display:block}.freq-head{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--line)}.freq-list{overflow:auto;max-height:65vh;padding:8px 12px}.freq-line{display:flex;justify-content:space-between;border-bottom:1px solid #173245;padding:7px 0}.freq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#dff7ff}
+.route-note{margin-top:10px;color:var(--muted);font-size:12px}.recfreq{color:#dff7ff}.connector-line{pointer-events:none}
+.plane-icon{width:72px;height:54px;transform-origin:36px 27px}.plane-shape{position:absolute;left:28px;top:6px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:22px solid var(--level);filter:drop-shadow(0 0 6px #000)}.plane-label{position:absolute;left:0;top:31px;min-width:72px;text-align:center;background:#071019d9;border:1px solid #244052;border-radius:7px;padding:2px 5px;color:#eaf6ff;font-size:11px;white-space:nowrap}.plane-icon.up .plane-shape{border-bottom-color:var(--up)}.plane-icon.down .plane-shape{border-bottom-color:var(--down)}.plane-icon.emg .plane-shape{border-bottom-color:var(--down)}.plane-icon.sel .plane-label{border-color:var(--cyan);color:#fff}
+@media(max-width:860px){#map{inset:0 0 42% 0}aside{left:0;right:0;top:58%;width:auto;border-left:0;border-top:1px solid var(--line)}#detail{max-width:calc(100vw - 24px);left:12px;top:12px}.freq-window{right:12px;left:12px;width:auto}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="toast"></div>
+<section id="detail"></section>
+<section class="freq-window" id="freqWindow">
+  <div class="freq-head"><b>Frequenzen</b><button class="smallbtn" id="closeFreq">Schließen</button></div>
+  <div class="freq-list" id="freqList"></div>
+</section>
+<aside>
+  <header><div class="brand"><span class="pulse"></span><span>Garden Radar</span></div><div class="sub" id="status">GitHub-Daten werden geladen...</div></header>
+  <div id="alarm"></div>
+  <section class="stats"><div class="stat"><b id="sTotal">–</b><span>Flüge</span></div><div class="stat"><b id="sAir">–</b><span>in Luft</span></div><div class="stat"><b id="sAge">–</b><span>Alter</span></div></section>
+  <section class="toolbar"><input id="search" placeholder="Suche Callsign, Airline, Squawk"><button id="fitBtn">Alle</button><select id="fMode"><option value="">Alle</option><option value="emg">Nur Notfall</option><option value="fav">Favoriten</option></select><button id="freqBtn">Frequenzen</button></section>
+  <div id="list"></div>
+</aside>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const RECEIVER={lat:48.256806,lon:13.026472};
+const DATA={aircraft:'aircraft.json',airlines:'esp-data/airlines.json',freqs:'esp-data/nearby-frequencies.json',routes:'esp-data/routes/'};
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const map=L.map('map',{zoomControl:true,worldCopyJump:true}).setView([RECEIVER.lat,RECEIVER.lon],8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);
+L.circleMarker([RECEIVER.lat,RECEIVER.lon],{radius:6,color:'#fff',fillColor:'#38d8ff',fillOpacity:1}).addTo(map).bindTooltip('Empfänger');
+let planes=[],airlines={},freqs=[],selected=null,markers=new Map(),trails=new Map(),headingLine=null,freqLine=null,routeLine=null,routeOriginLine=null,routeDestLine=null,connectorLine=null,lastNow=0,first=true;
+const routeCache=new Map();
+const favs=new Set(JSON.parse(localStorage.getItem('grFavs')||'[]'));
+const ignores=new Set(JSON.parse(localStorage.getItem('grIgnores')||'[]'));
+function saveSets(){localStorage.setItem('grFavs',JSON.stringify([...favs]));localStorage.setItem('grIgnores',JSON.stringify([...ignores]))}
+function toRad(d){return d*Math.PI/180}
+function distanceKm(a,b){const R=6371,la1=toRad(a[0]),la2=toRad(b[0]),dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]);const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))}
+function greatCircle(a,b,steps=80){let lat1=toRad(a[0]),lon1=toRad(a[1]),lat2=toRad(b[0]),lon2=toRad(b[1]);let d=2*Math.asin(Math.sqrt(Math.sin((lat2-lat1)/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin((lon2-lon1)/2)**2));if(!Number.isFinite(d)||d<1e-9)return[a,b];let pts=[];for(let i=0;i<=steps;i++){let f=i/steps,A=Math.sin((1-f)*d)/Math.sin(d),B=Math.sin(f*d)/Math.sin(d);let x=A*Math.cos(lat1)*Math.cos(lon1)+B*Math.cos(lat2)*Math.cos(lon2);let y=A*Math.cos(lat1)*Math.sin(lon1)+B*Math.cos(lat2)*Math.sin(lon2);let z=A*Math.sin(lat1)+B*Math.sin(lat2);pts.push([Math.atan2(z,Math.sqrt(x*x+y*y))*180/Math.PI,Math.atan2(y,x)*180/Math.PI])}return pts}
+function bearingDeg(a,b){const y=Math.sin(toRad(b[1]-a[1]))*Math.cos(toRad(b[0]));const x=Math.cos(toRad(a[0]))*Math.sin(toRad(b[0]))-Math.sin(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.cos(toRad(b[1]-a[1]));return (Math.atan2(y,x)*180/Math.PI+360)%360}
+function angleDiff(a,b){let d=Math.abs(((a-b+540)%360)-180);return d}
+function pointInPoly(lat,lon,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){let yi=poly[i][0],xi=poly[i][1],yj=poly[j][0],xj=poly[j][1];let hit=((yi>lat)!=(yj>lat))&&(lon<(xj-xi)*(lat-yi)/(yj-yi)+xi);if(hit)inside=!inside}return inside}
+const LOVV_APPROX=[[49.15,9.50],[49.15,17.25],[48.45,17.25],[47.95,16.95],[46.65,16.65],[46.15,15.40],[46.30,13.60],[46.55,12.40],[46.85,10.80],[47.35,9.50]];
+const SECTORS=[
+ {name:'FIC TFI',label:'FIC TFI',min:0,max:14500,poly:[[49.15,15.15],[49.15,17.25],[48.45,17.25],[47.75,16.45],[47.95,15.35],[48.55,15.35]]},
+ {name:'FIC NORTH',label:'FIC NORTH',min:0,max:14500,poly:[[49.15,9.50],[49.15,15.15],[48.55,15.35],[47.95,15.35],[47.65,14.75],[47.65,12.25],[48.15,11.20]]},
+ {name:'FIC SOUTH',label:'FIC SOUTH',min:0,max:14500,poly:[[47.65,9.50],[47.65,14.75],[47.95,15.35],[47.75,16.45],[46.65,16.65],[46.15,15.40],[46.30,13.60],[46.55,12.40],[46.85,10.80]]},
+ {name:'ACC WEST',label:'ACCW RADAR19',min:14500,max:60000,poly:[[49.15,9.50],[49.15,12.35],[48.15,12.35],[47.65,12.05],[46.85,10.80],[47.35,9.50]]},
+ {name:'ACC NORTH',label:'ACCW RADAR24',min:14500,max:60000,poly:[[49.15,12.35],[49.15,15.25],[48.55,15.25],[48.05,14.70],[48.15,12.35]]},
+ {name:'ACC CENTRAL',label:'ACCW RADAR18',min:14500,max:60000,poly:[[48.15,12.35],[48.05,14.70],[47.65,14.75],[47.25,13.40],[47.65,12.05]]},
+ {name:'ACC SOUTH',label:'ACCW RADAR27',min:14500,max:60000,poly:[[47.65,12.05],[47.25,13.40],[47.65,14.75],[47.75,16.45],[46.65,16.65],[46.15,15.40],[46.30,13.60],[46.55,12.40]]},
+ {name:'ACC EAST',label:'ACCW RADAR28',min:14500,max:60000,poly:[[49.15,15.25],[49.15,17.25],[48.45,17.25],[47.75,16.45],[47.65,14.75],[48.05,14.70],[48.55,15.25]]}
+];
+function planeDist(a){return distanceKm([RECEIVER.lat,RECEIVER.lon],[a.lat,a.lon])}
+function destPoint(lat,lon,brg,km){const R=6371,d=km/R,t=toRad(brg),p1=toRad(lat),l1=toRad(lon);const p2=Math.asin(Math.sin(p1)*Math.cos(d)+Math.cos(p1)*Math.sin(d)*Math.cos(t));const l2=l1+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(p1),Math.cos(d)-Math.sin(p1)*Math.sin(p2));return[p2*180/Math.PI,((l2*180/Math.PI+540)%360)-180]}
+function relevantForLovv(a){let p=[a.lat,a.lon],d=planeDist(a);if(pointInPoly(a.lat,a.lon,LOVV_APPROX))return true;if(d>170||!Number.isFinite(a.track))return false;return angleDiff(a.track,bearingDeg(p,[RECEIVER.lat,RECEIVER.lon]))<80}
+function findFreqByLabel(label){let want=String(label).toUpperCase();return freqs.find(f=>String(f.label||'').toUpperCase()===want)||freqs.find(f=>String(f.label||'').toUpperCase().includes(want))}
+function recommendedFreq(a){let candidates=freqs.filter(f=>Number.isFinite(Number(f.lat))&&Number.isFinite(Number(f.lon)));if(!candidates.length)return null;let altFt=Number(a.alt);if(relevantForLovv(a)&&Number.isFinite(altFt)){for(const s of SECTORS){if(altFt>=s.min&&altFt<=s.max&&pointInPoly(a.lat,a.lon,s.poly)){let f=findFreqByLabel(s.label);if(f)return {...f,planeDist:planeDist(a),sector:s.name,reason:'Sektor'};}}}let best=null,score=1e9;for(const f of candidates){let d=distanceKm([a.lat,a.lon],[Number(f.lat),Number(f.lon)]),type=String(f.type||f.label||'').toUpperCase();let rank=80;if(type.includes('ATIS'))rank=120;else if(type.includes('TWR')||type.includes('TOWER'))rank=75;else if(type.includes('APP')||type.includes('ARR')||type.includes('DEP'))rank=42;else if(type.includes('RADAR')||type.includes('ACC'))rank=35;else if(type.includes('INFO')||type.includes('AFIS')||type.includes('FIS'))rank=55;if(Number.isFinite(altFt)&&altFt>18000&&rank>45)rank+=90;if(d>80&&rank>=55)rank+=80;let s=d*2+rank+(Number(f.dist)||0)*.1;if(s<score){score=s;best={...f,planeDist:d,reason:'Nähe'}}}return best}
+function alt(a){if(a.ground)return'Boden';let v=a.alt??a.alt_baro;if(v==='ground')return'Boden';return Number.isFinite(Number(v))?Number(v).toLocaleString('de-DE')+' ft':'–'}
+function trend(r){r=Number(r);if(r>128)return'up';if(r<-128)return'down';return'level'}
+function arrow(r){return trend(r)==='up'?'↗':trend(r)==='down'?'↘':'→'}
+function sqInfo(s){s=String(s||'');return s==='7500'?'Hijack':s==='7600'?'Funk':s==='7700'?'Notfall':''}
+function ageText(now){let a=Math.max(0,Date.now()/1000-(now||0));if(!now)return'–';if(a<90)return Math.round(a)+'s';if(a<7200)return Math.round(a/60)+'min';return(a/3600).toFixed(1)+'h'}
+function airlineName(cs){cs=String(cs||'').trim().toUpperCase();return airlines[cs.slice(0,3)]||airlines[cs.slice(0,2)]||'Airline unbek.'}
+function planeIcon(a,isSel){let cls=`plane-icon ${trend(a.rate)} ${sqInfo(a.squawk)?'emg':''} ${isSel?'sel':''}`;let rot=Number.isFinite(Number(a.track))?Number(a.track):0;return L.divIcon({className:'',iconSize:[72,54],iconAnchor:[36,27],html:`<div class="${cls}" style="transform:rotate(${rot}deg)"><div class="plane-shape"></div><div class="plane-label" style="transform:rotate(${-rot}deg)">${esc(a.flight||a.hex)}</div></div>`})}
+async function loadJson(path,fallback){let r=await fetch(path+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(path+' '+r.status);return await r.json()}
+async function routeForCallsign(callsign){let cs=String(callsign||'').trim().toUpperCase();if(!cs)return null;if(routeCache.has(cs))return routeCache.get(cs);let letter=cs[0];if(!/^[A-Z0-9]$/.test(letter))return null;let shardKey='@'+letter;if(!routeCache.has(shardKey)){try{routeCache.set(shardKey,await loadJson(DATA.routes+letter+'.json',{}))}catch(_){routeCache.set(shardKey,{})}}let row=routeCache.get(shardKey)[cs]||null;let route=row?{origin:row[0],destination:row[1],originLat:row[2],originLon:row[3],destLat:row[4],destLon:row[5]}:null;routeCache.set(cs,route);return route}
+function closestPointOnRoute(route,a){let ax=route.originLon,ay=route.originLat,bx=route.destLon,by=route.destLat,px=a.lon,py=a.lat;let dx=bx-ax,dy=by-ay,len=dx*dx+dy*dy;if(!len)return[ay,ax];let t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len));return[ay+t*dy,ax+t*dx]}
+async function load(){try{$('status').textContent='GitHub-Daten werden geladen...';const[data,a,f]=await Promise.all([loadJson(DATA.aircraft,{aircraft:[],now:0}),loadJson(DATA.airlines,{}),loadJson(DATA.freqs,[])]);airlines=a||{};freqs=f||[];lastNow=data.now||0;planes=(data.aircraft||[]).filter(x=>x.flight&&Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lon))).map(x=>({hex:x.hex||'',flight:String(x.flight||'').trim(),lat:Number(x.lat),lon:Number(x.lon),track:Number(x.track),speed:Number(x.gs??x.speed),rate:Number(x.baro_rate??x.rate??0),alt:x.alt_baro??x.alt,ground:x.alt_baro==='ground'||x.ground,squawk:x.squawk||'',category:x.category||'',type:x.t||x.type||'',seen:Number(x.seen)}));$('sTotal').textContent=planes.length;$('sAir').textContent=planes.filter(a=>!a.ground).length;$('sAge').textContent=ageText(lastNow);$('status').textContent=`GitHub Pages · ${ageText(lastNow)} alt · Update ${new Date().toLocaleTimeString('de-DE')}`;let em=planes.find(a=>sqInfo(a.squawk));$('alarm').style.display=em?'block':'none';if(em)$('alarm').textContent=`SQUAWK ${em.squawk} · ${em.flight||em.hex} · ${sqInfo(em.squawk)}`;render();if(first&&planes.length){fit();first=false}$('toast').style.display='none'}catch(e){$('status').textContent='GitHub-Daten nicht erreichbar';$('toast').textContent=e.message;$('toast').style.display='block'}}
+function updateTrails(a){let t=trails.get(a.hex);if(!t){t={pts:[],line:null};trails.set(a.hex,t)}if(!t.pts.length||distanceKm(t.pts[t.pts.length-1],[a.lat,a.lon])>.05)t.pts.push([a.lat,a.lon]);if(t.pts.length>40)t.pts.shift();if(t.line){map.removeLayer(t.line);t.line=null}if(t.pts.length>1)t.line=L.polyline(t.pts,{color:selected===a.hex?'#38d8ff':'#4d89aa',weight:selected===a.hex?3:2,opacity:.55}).addTo(map)}
+function updateSelectedLines(){if(headingLine){map.removeLayer(headingLine);headingLine=null}if(freqLine){map.removeLayer(freqLine);freqLine=null}}
+function drawRoute(route,a){if(routeLine){map.removeLayer(routeLine);routeLine=null}if(routeOriginLine){map.removeLayer(routeOriginLine);routeOriginLine=null}if(routeDestLine){map.removeLayer(routeDestLine);routeDestLine=null}if(!route||!a)return;let from=[route.originLat,route.originLon],to=[route.destLat,route.destLon],plane=[a.lat,a.lon];routeLine=L.polyline(greatCircle(from,to),{color:'#32e69a',weight:3,opacity:.85}).addTo(map);routeOriginLine=L.polyline(greatCircle(plane,from,50),{color:'#8fd3ff',weight:2,opacity:.55,dashArray:'5,7'}).addTo(map);routeDestLine=L.polyline(greatCircle(plane,to,50),{color:'#ffd166',weight:2,opacity:.7,dashArray:'5,7'}).addTo(map)}
+function updateConnector(){if(connectorLine){map.removeLayer(connectorLine);connectorLine=null}let a=planes.find(x=>x.hex===selected),d=$('detail');if(!a||d.style.display==='none')return;let r=d.getBoundingClientRect(),m=$('map').getBoundingClientRect();let p=map.containerPointToLatLng([r.left-m.left+r.width/2,r.top-m.top+18]);connectorLine=L.polyline([[a.lat,a.lon],p],{color:'#8fd3ff',weight:1.5,opacity:.8,className:'connector-line'}).addTo(map)}
+function render(){let live=new Set();for(const a of planes){live.add(a.hex);let m=markers.get(a.hex);if(!m){m=L.marker([a.lat,a.lon],{icon:planeIcon(a,selected===a.hex)}).addTo(map).on('click',()=>showDetail(a));markers.set(a.hex,m)}else{m.setLatLng([a.lat,a.lon]);m.setIcon(planeIcon(a,selected===a.hex));m.off('click').on('click',()=>showDetail(a))}updateTrails(a)}for(const[id,m]of markers)if(!live.has(id)){map.removeLayer(m);markers.delete(id);let t=trails.get(id);if(t?.line)map.removeLayer(t.line);trails.delete(id)}let q=$('search').value.trim().toUpperCase(),mode=$('fMode').value;let shown=planes.filter(a=>{let txt=`${a.flight} ${a.hex} ${a.type} ${a.squawk} ${airlineName(a.flight)}`.toUpperCase();if(ignores.has(a.hex))return false;if(q&&!txt.includes(q))return false;if(mode==='emg'&&!sqInfo(a.squawk))return false;if(mode==='fav'&&!favs.has(a.hex))return false;return true}).sort((a,b)=>(sqInfo(b.squawk)?1:0)-(sqInfo(a.squawk)?1:0)||(favs.has(b.hex)?1:0)-(favs.has(a.hex)?1:0)||planeDist(a)-planeDist(b));$('list').innerHTML=shown.map(a=>{let em=sqInfo(a.squawk),fav=favs.has(a.hex);return`<div class="row ${selected===a.hex?'sel':''} ${em?'emg':''}" data-id="${esc(a.hex)}"><div><strong>${fav?'<span class=fav>★</span> ':''}${esc(a.flight||a.hex)}${em?`<span class=badge-emg>${esc(a.squawk)}</span>`:''}</strong><small>${em?esc(em):esc(airlineName(a.flight))}</small></div><div class=right>${alt(a)}<small>${Math.round(planeDist(a))} km</small></div><div class="right trend ${em?'down':trend(a.rate)}"><button data-act=fav data-id="${esc(a.hex)}" title=Favorit>${fav?'★':'☆'}</button><button data-act=ign data-id="${esc(a.hex)}" title=Ignorieren>×</button><small>${em?'!':arrow(a.rate)} ${Number.isFinite(a.track)?Math.round(a.track)+'°':'–'}</small></div></div>`}).join('');document.querySelectorAll('[data-act]').forEach(b=>b.onclick=e=>{e.stopPropagation();let id=b.dataset.id;if(b.dataset.act==='fav'){favs.has(id)?favs.delete(id):favs.add(id)}else ignores.add(id);saveSets();render()});document.querySelectorAll('#list .row').forEach(e=>e.onclick=()=>{let a=planes.find(x=>x.hex===e.dataset.id);if(a){showDetail(a);map.panTo([a.lat,a.lon])}});updateSelectedLines();updateConnector()}
+function renderDetail(a,route){let rf=recommendedFreq(a),dev='';if(route){let cp=closestPointOnRoute(route,a);dev=`<div>Route<b>${esc(route.origin)} → ${esc(route.destination)}</b></div><div>Abweichung<b>${Math.round(distanceKm([a.lat,a.lon],cp))} km</b></div>`}$('detail').innerHTML=`<div class=detail-head><b>${esc(a.flight||a.hex)}</b><button class=detail-close onclick="closeDetail()">×</button></div><div class=detail-body><div class=grid2><div>Airline<b>${esc(airlineName(a.flight))}</b></div><div>Distanz<b>${Math.round(planeDist(a))} km</b></div><div>Höhe<b>${alt(a)}</b></div><div>Speed<b>${Number.isFinite(a.speed)?Math.round(a.speed)+' kt':'–'}</b></div><div>Track<b>${Number.isFinite(a.track)?Math.round(a.track)+'°':'–'}</b></div><div>Steigen/Sinken<b>${arrow(a.rate)} ${Number.isFinite(a.rate)?Math.round(a.rate)+' fpm':'–'}</b></div><div>Squawk<b>${esc(a.squawk||'–')} ${esc(sqInfo(a.squawk))}</b></div><div>Typ/Kat.<b>${esc(a.type||a.category||'–')}</b></div>${dev}</div><div class=route-note>Grün: Großkreis-Route. Blau: Linie zum Ursprung. Gelb: Linie zum Ziel.</div><p class=recfreq>Empfohlene Frequenz: <b>${rf?esc((rf.label||rf.airport)+' '+rf.freq):'–'}</b>${rf?`<br><span class=sub>${rf.reason?esc(rf.reason)+' · ':''}${Math.round(rf.planeDist)} km Bezug · ${esc(rf.type||'')}</span>`:''}</p></div>`}
+async function showDetail(a){selected=a.hex;$('detail').style.display='block';renderDetail(a,null);render();let route=await routeForCallsign(a.flight);if(selected===a.hex){renderDetail(a,route);drawRoute(route,a);updateConnector()}}
+window.closeDetail=()=>{selected=null;$('detail').style.display='none';if(routeLine){map.removeLayer(routeLine);routeLine=null}if(routeOriginLine){map.removeLayer(routeOriginLine);routeOriginLine=null}if(routeDestLine){map.removeLayer(routeDestLine);routeDestLine=null}updateSelectedLines();updateConnector();render()};
+function renderFreqs(){let groups={};freqs.forEach(f=>(groups[f.airport||'SONSTIGE']??=[]).push(f));$('freqList').innerHTML=Object.keys(groups).sort().map(g=>`<h3>${esc(g)}</h3>`+groups[g].map(f=>`<div class=freq-line><span>${esc(f.label||f.type||g)}</span><span class=freq>${esc(f.freq)}</span></div>`).join('')).join('')||'<p class=sub>Keine Frequenzen geladen.</p>'}
+function fit(){if(!planes.length)return;map.fitBounds(L.latLngBounds(planes.map(a=>[a.lat,a.lon])),{padding:[35,35],maxZoom:10})}
+$('search').oninput=render;$('fMode').onchange=render;$('fitBtn').onclick=fit;$('freqBtn').onclick=()=>{$('freqWindow').classList.add('open');renderFreqs()};$('closeFreq').onclick=()=>$('freqWindow').classList.remove('open');map.on('move zoom resize',()=>{updateSelectedLines();updateConnector()});(()=>{let drag=false,dx=0,dy=0,d=$('detail');d.addEventListener('pointerdown',e=>{let h=e.target.closest('.detail-head');if(!h||e.target.closest('button'))return;e.preventDefault();drag=true;let r=d.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;d.setPointerCapture(e.pointerId)});d.addEventListener('pointermove',e=>{if(!drag)return;d.style.left=Math.max(8,Math.min(innerWidth-d.offsetWidth-8,e.clientX-dx))+'px';d.style.top=Math.max(8,Math.min(innerHeight-d.offsetHeight-8,e.clientY-dy))+'px';updateConnector()});d.addEventListener('pointerup',e=>{drag=false;try{d.releasePointerCapture(e.pointerId)}catch(_){}})})();
+load();setInterval(load,60000);
+</script>
+</body>
+</html>
